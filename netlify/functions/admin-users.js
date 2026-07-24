@@ -1,7 +1,7 @@
 const SUPABASE_URL = process.env.SUPABASE_URL || "https://xnsygzxvxiocbwkokgrk.supabase.co";
 const ANON_KEY = process.env.SUPABASE_ANON_KEY || "sb_publishable_uEs6c9Xeei252v4fUGwrEw_16rB92lz";
 const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
-const ADMIN_EMAILS = (process.env.ADMIN_EMAILS || "martinamantovani81@gmail.com")
+const ADMIN_EMAILS = (process.env.ADMIN_EMAILS || "simonefrisoni@hotmail.com,martinamantovani81@gmail.com")
   .split(",")
   .map((email) => email.trim().toLowerCase())
   .filter(Boolean);
