@@ -6,8 +6,8 @@ exports.handler = async (event) => {
   const limit = Math.min(Math.max(Number(params.limit) || 50, 20), 300);
   const kind = String(params.kind || "all");
   const name = String(params.name || params.q || "").trim();
-  const knownOnly = knownResultsForName(name);
-  if (knownOnly.length && (kind === "all" || kind === "camp")) {
+  const knownOnly = knownResultsForName(name).filter((item) => matchesKind(item, kind));
+  if (knownOnly.length) {
     return json({ results: knownOnly.slice(0, limit), source: "Sito ufficiale" });
   }
   if (String(params.nationwide || "") === "1" && name) {
@@ -150,6 +150,21 @@ function knownResultsForName(name) {
   const needle = normalize(name);
   if (!needle) return [];
   const known = [];
+  if (needle.includes("mirabilandia")) {
+    known.push({
+      id: "known-mirabilandia-camper",
+      name: "Area Camper Mirabilandia",
+      kind: "Area camper",
+      free: false,
+      lat: 44.3371715,
+      lon: 12.2631788,
+      place: "Ravenna",
+      notes: "Sosta camper 48 ore, area attrezzata con approvvigionamento idrico e scarico, senza corrente elettrica.",
+      website: "https://www.mirabilandia.it/calendario-e-tariffe/tariffe",
+      phone: "",
+      source: "Sito ufficiale"
+    });
+  }
   if (["andalo camping life", "camping life andalo", "camping life park", "camping andalo life", "andalo life camping"].some((label) => needle.includes(label) || label.includes(needle))) {
     known.push({
       id: "known-andalo-camping-life",
@@ -166,6 +181,15 @@ function knownResultsForName(name) {
     });
   }
   return known;
+}
+
+function matchesKind(item, kind) {
+  if (kind === "all") return true;
+  if (kind === "camp") return item.kind === "Campeggio";
+  if (kind === "camper") return item.kind === "Area camper";
+  if (kind === "free") return item.free;
+  if (kind === "services") return /scarico|acqua|servizi/i.test(item.notes || "");
+  return true;
 }
 
 function sortByName(results, name) {
@@ -201,7 +225,10 @@ function buildQuery(lat, lon, radius, kind, limit) {
   if (kind === "all" || kind === "camper") filters.push(`nwr(around:${radius},${lat},${lon})["tourism"="caravan_site"];`);
   if (kind === "all" || kind === "services") filters.push(`nwr(around:${radius},${lat},${lon})["amenity"="sanitary_dump_station"];`);
   if (kind === "free") filters.push(`nwr(around:${radius},${lat},${lon})["fee"="no"];`);
-  if (kind === "all") filters.push(`nwr(around:${radius},${lat},${lon})["amenity"="parking"]["fee"="no"];`);
+  if (kind === "all") {
+    filters.push(`nwr(around:${radius},${lat},${lon})["amenity"="parking"]["caravan"="yes"];`);
+    filters.push(`nwr(around:${radius},${lat},${lon})["amenity"="parking"]["motorhome"="yes"];`);
+  }
   return `[out:json][timeout:25];(${filters.join("")});out center ${limit};`;
 }
 

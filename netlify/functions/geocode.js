@@ -44,6 +44,13 @@ async function findPlace(q) {
 
 function knownPlace(q) {
   const needle = normalize(q);
+  if (needle.includes("mirabilandia")) {
+    return {
+      lat: 44.3371715,
+      lon: 12.2631788,
+      display_name: "Mirabilandia, Ravenna, Italia"
+    };
+  }
   if (["andalo camping life", "camping life andalo", "camping life park", "camping andalo life", "andalo life camping"].some((name) => needle.includes(name) || name.includes(needle))) {
     return {
       lat: 46.169573,
