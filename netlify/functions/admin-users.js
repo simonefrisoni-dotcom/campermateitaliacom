@@ -18,7 +18,7 @@ exports.handler = async (event) => {
 
     const action = new URLSearchParams(event.queryStringParameters || {}).get("action") || "list";
     if (action === "list") return listUsers(event);
-    if (action === "set-free") return setFree(event);
+    if (action === "set-premium" || action === "set-free") return setPremium(event);
     return json({ error: "Azione admin non valida." }, 400);
   } catch (error) {
     return json({ error: error.message || "Errore admin." }, error.status || 500);
@@ -35,14 +35,14 @@ async function listUsers(event) {
   return json({ users });
 }
 
-async function setFree(event) {
+async function setPremium(event) {
   const body = parseBody(event.body);
   if (!body.userId) return json({ error: "Utente mancante." }, 400);
   const user = await supabase("/auth/v1/admin/users/" + encodeURIComponent(body.userId), { service: true });
   const appMetadata = Object.assign({}, user.app_metadata || {});
   if (body.unlocked) {
-    appMetadata.plan = "free_unlocked";
-    appMetadata.access = "free_unlocked";
+    appMetadata.plan = "premium";
+    appMetadata.access = "premium";
   } else {
     appMetadata.plan = "free";
     appMetadata.access = "free";
