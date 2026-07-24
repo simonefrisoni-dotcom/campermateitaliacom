@@ -25,6 +25,10 @@ exports.handler = async (event) => {
 };
 
 async function searchItalyByName(name, kind, limit) {
+  const nominatimResults = await searchNominatimItaly(name, kind, limit);
+  if (nominatimResults.length) {
+    return json({ results: sortByName(addKnownResults(nominatimResults, name), name).slice(0, limit), source: "OpenStreetMap Italia" });
+  }
   const body = buildItalyNameQuery(name, kind, limit);
   try {
     const data = await fetchOverpass(body);
@@ -35,6 +39,77 @@ async function searchItalyByName(name, kind, limit) {
   } catch (error) {
     return json({ error: "Ricerca nazionale momentaneamente lenta. Riprova tra pochi secondi." }, 502);
   }
+}
+
+async function searchNominatimItaly(name, kind, limit) {
+  const attempts = unique([name, "camping " + name, name + " camping", name + " area camper"]);
+  const found = [];
+  const seen = new Set();
+  for (const term of attempts) {
+    const api = "https://nominatim.openstreetmap.org/search?format=json&limit=" + Math.min(limit, 50) + "&countrycodes=it&addressdetails=1&extratags=1&q=" + encodeURIComponent(term);
+    try {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 6000);
+      const response = await fetch(api, {
+        signal: controller.signal,
+        headers: { accept: "application/json", "user-agent": "CamperMateItalia/1.0 (netlify)" }
+      });
+      clearTimeout(timer);
+      if (!response.ok) continue;
+      const items = await response.json();
+      for (const item of items) {
+        const result = nominatimToResult(item, kind);
+        if (!result || seen.has(result.id)) continue;
+        seen.add(result.id);
+        found.push(result);
+      }
+    } catch (error) {}
+    if (found.length >= limit) break;
+  }
+  return found;
+}
+
+function nominatimToResult(item, kindFilter) {
+  const type = normalize([item.class, item.type, item.display_name].join(" "));
+  const isCamp = /camp|camping|campeggio/.test(type);
+  const isCamper = /caravan|camper|area camper/.test(type);
+  const isParking = /parking|parcheggio/.test(type);
+  if (kindFilter === "camp" && !isCamp) return null;
+  if (kindFilter === "camper" && !isCamper) return null;
+  if (kindFilter === "free" && !isParking && !isCamper) return null;
+  if (kindFilter === "services" && !/sanitary|dump|scarico/.test(type)) return null;
+  if (kindFilter === "all" && !isCamp && !isCamper && !isParking) return null;
+  const center = centerFromNominatim(item);
+  if (!center) return null;
+  const tags = item.extratags || {};
+  const address = item.address || {};
+  const name = item.name || (String(item.display_name || "").split(",")[0] || "Camping");
+  return {
+    id: "nominatim-" + (item.osm_type || "place") + "-" + (item.osm_id || item.place_id || name),
+    name,
+    kind: isCamper ? "Area camper" : isParking ? "Parcheggio" : "Campeggio",
+    free: tags.fee === "no",
+    lat: center.lat,
+    lon: center.lon,
+    place: address.city || address.town || address.village || address.municipality || address.county || "",
+    notes: item.display_name || "",
+    website: tags.website || tags["contact:website"] || tags.url || "",
+    phone: tags.phone || tags["contact:phone"] || "",
+    source: "OSM"
+  };
+}
+
+function centerFromNominatim(item) {
+  const lat = Number(item.lat);
+  const lon = Number(item.lon);
+  if (Number.isFinite(lat) && Number.isFinite(lon)) return { lat, lon };
+  const box = item.boundingbox || [];
+  const south = Number(box[0]);
+  const north = Number(box[1]);
+  const west = Number(box[2]);
+  const east = Number(box[3]);
+  if ([south, north, west, east].every(Number.isFinite)) return { lat: (south + north) / 2, lon: (west + east) / 2 };
+  return null;
 }
 
 async function fetchOverpass(query) {
@@ -123,6 +198,10 @@ function normalize(value) {
     .replace(/[\u0300-\u036f]/g, "")
     .replace(/[^a-z0-9]+/g, " ")
     .trim();
+}
+
+function unique(values) {
+  return values.filter((value, index) => value && values.indexOf(value) === index);
 }
 
 function buildQuery(lat, lon, radius, kind, limit) {
