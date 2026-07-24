@@ -131,27 +131,15 @@ function overpassQuery(lat,lon,radius,kind,limit){var filters=[];if(kind==="all"
 async function searchOpenData(lat,lon,formData){
   var radiusKm=Math.min(80,Math.max(1,Number(formData.radius)||15));
   var limit=Math.min(300,Math.max(20,Number(formData.limit)||50));
-  var cacheKey='camping:'+[lat.toFixed(3),lon.toFixed(3),radiusKm,formData.kind,limit].join(':');
+  var cacheKey='camping:'+[lat.toFixed(3),lon.toFixed(3),radiusKm,formData.kind,limit,formData.place||""].join(':');
   var cached=localStorage.getItem(cacheKey);
   if(cached){try{var saved=JSON.parse(cached);if(Date.now()-saved.time<21600000){state.results=saved.results||[];saveState();renderResults();return}}catch(e){}}
   var qs='lat='+encodeURIComponent(lat)+'&lon='+encodeURIComponent(lon)+'&radius='+encodeURIComponent(radiusKm)+'&kind='+encodeURIComponent(formData.kind)+'&limit='+encodeURIComponent(limit)+'&name='+encodeURIComponent(formData.place||"");
-  var isLocal=location.hostname==='127.0.0.1'||location.hostname==='localhost';
-  if(isLocal){
-    var local=await fetchJsonSafe('/api/search?'+qs,null,'Ricerca non disponibile');
-    state.results=(local.results||[]).slice(0,limit);localStorage.setItem(cacheKey,JSON.stringify({time:Date.now(),results:state.results}));saveState();renderResults();return
-  }
-  var radius=radiusKm*1000;
-  var body=overpassQuery(lat,lon,radius,formData.kind,limit);
-  try{
-    var controller=new AbortController();
-    var timer=setTimeout(function(){controller.abort()},9000);
-    var json=await fetchJsonSafe('https://overpass-api.de/api/interpreter',{method:'POST',headers:{'content-type':'application/x-www-form-urlencoded;charset=UTF-8'},body:'data='+encodeURIComponent(body),signal:controller.signal},'OpenStreetMap occupato, riprovo con il server app');
-    clearTimeout(timer);
-    state.results=(json.elements||[]).map(tagsToResult).filter(Boolean).slice(0,limit);localStorage.setItem(cacheKey,JSON.stringify({time:Date.now(),results:state.results}));saveState();renderResults();return
-  }catch(firstErr){
-    var fallback=await fetchJsonSafe('/api/search?'+qs,null,'Ricerca camping non disponibile ora');
-    state.results=(fallback.results||[]).slice(0,limit);localStorage.setItem(cacheKey,JSON.stringify({time:Date.now(),results:state.results}));saveState();renderResults()
-  }
+  var found=await fetchJsonSafe('/api/search?'+qs,null,'Ricerca camping non disponibile ora');
+  state.results=(found.results||[]).slice(0,limit);
+  localStorage.setItem(cacheKey,JSON.stringify({time:Date.now(),results:state.results}));
+  saveState();
+  renderResults();
 }
 async function searchItalyData(formData){
   var limit=Math.min(300,Math.max(20,Number(formData.limit)||50));
