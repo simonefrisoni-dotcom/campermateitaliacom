@@ -45,8 +45,8 @@
 <script>
 function uid(){return crypto.randomUUID ? crypto.randomUUID() : String(Date.now()+Math.random())}
 var demo={vehicle:{type:"Camper",model:"",plate:"",length:"",width:"",height:"",weight:"",photo:""},levels:{water:62,grey:38,black:25,battery:84,gas:57,km:80},tasks:[{id:uid(),text:"Chiudere finestre e oblo",done:false},{id:uid(),text:"Staccare corrente e bloccare il cavo",done:false},{id:uid(),text:"Controllare gas e frigo",done:true},{id:uid(),text:"Svuotare grigie e nere",done:false}],stops:[{id:uid(),name:"Area lago nord",price:"EUR 16/notte",rating:4,services:"Carico, scarico, corrente",notes:"Tranquilla dopo le 22, leggera pendenza sul lato destro."}],maintenance:[{id:uid(),title:"Controllo infiltrazioni",due:"2026-09-15",km:"",notes:"Verificare sigillature tetto e finestre.",category:"Manutenzione"}],deadlines:[{id:uid(),type:"Assicurazione",title:"Assicurazione camper",due:"2026-08-31",amount:420,notes:"RC e assistenza stradale"},{id:uid(),type:"Bollo",title:"Bollo camper",due:"2026-09-30",amount:95,notes:"Tassa automobilistica"}],cargo:[{id:uid(),name:"Acqua naturale",qty:6,category:"Bevande",notes:"Bottiglie da 1,5 L",done:false},{id:uid(),name:"Pasta",qty:2,category:"Alimentari",notes:"Formato corto",done:false},{id:uid(),name:"CaffÃ¨",qty:1,category:"Colazione",notes:"",done:true}],journal:[{id:uid(),title:"Prima notte vista lago",place:"Lago di Garda",date:"2026-07-12",notes:"Sosta tranquilla, tramonto bellissimo e scarico comodo la mattina.",photo:""}],costs:[{id:uid(),title:"Gasolio",amount:72.5,type:"Gasolio"},{id:uid(),title:"Area sosta",amount:18,type:"Sosta"}],results:[]};
-var SUPABASE_URL="https://xnsygzxvxiocbwkokgrk.supabase.co";
-var SUPABASE_ANON_KEY="sb_publishable_uEs6c9Xeei252v4fUGwrEw_16rB92lz";
+var SUPABASE_URL="https://pjdfsixyldqodqwymnot.supabase.co";
+var SUPABASE_ANON_KEY="sb_publishable_mUzoePPUqbVQqMtOR9BQGw_X50QXruR";
 var sbClient=null,authUser=null,authMode="login",adminUsers=[];
 var ADMIN_EMAILS=["simonefrisoni@hotmail.com","martinamantovani81@gmail.com"];
 var state=JSON.parse(localStorage.getItem("campermate")||JSON.stringify(demo));
