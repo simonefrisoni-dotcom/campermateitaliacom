@@ -11,6 +11,11 @@ exports.handler = async (event) => {
 };
 
 async function findPlace(q) {
+  const osmRef = parseOsmRef(q);
+  if (osmRef) {
+    const direct = await osmLookup(osmRef);
+    if (direct) return direct;
+  }
   const attempts = unique([
     q,
     "camping " + q,
@@ -32,6 +37,53 @@ async function findPlace(q) {
   }
   const osm = await overpassName(q);
   if (osm) return osm;
+  return null;
+}
+
+function parseOsmRef(q) {
+  const match = String(q || "").match(/openstreetmap\.org\/(node|way|relation)\/(\d+)/i) || String(q || "").match(/\b(node|way|relation)\s*\/?\s*(\d+)\b/i);
+  if (!match) return null;
+  const prefix = match[1].toLowerCase() === "node" ? "N" : match[1].toLowerCase() === "way" ? "W" : "R";
+  return { osmId: prefix + match[2], type: match[1].toLowerCase(), id: match[2] };
+}
+
+async function osmLookup(ref) {
+  const api = "https://nominatim.openstreetmap.org/lookup?format=json&extratags=1&osm_ids=" + encodeURIComponent(ref.osmId);
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 6000);
+  const response = await fetch(api, {
+    signal: controller.signal,
+    headers: {
+      accept: "application/json",
+      "user-agent": "CamperMateItalia/1.0 (netlify)"
+    }
+  });
+  clearTimeout(timer);
+  if (!response.ok) return null;
+  const data = await response.json();
+  const item = Array.isArray(data) ? data[0] : null;
+  if (!item) return null;
+  const center = centerFromItem(item);
+  if (!center) return null;
+  return {
+    lat: center.lat,
+    lon: center.lon,
+    display_name: item.display_name || (ref.type + " " + ref.id + ", OpenStreetMap")
+  };
+}
+
+function centerFromItem(item) {
+  const lat = Number(item.lat);
+  const lon = Number(item.lon);
+  if (Number.isFinite(lat) && Number.isFinite(lon)) return { lat, lon };
+  const box = item.boundingbox || [];
+  const south = Number(box[0]);
+  const north = Number(box[1]);
+  const west = Number(box[2]);
+  const east = Number(box[3]);
+  if ([south, north, west, east].every(Number.isFinite)) {
+    return { lat: (south + north) / 2, lon: (west + east) / 2 };
+  }
   return null;
 }
 
