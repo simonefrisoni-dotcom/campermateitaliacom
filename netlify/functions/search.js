@@ -5,11 +5,12 @@ exports.handler = async (event) => {
   const radiusKm = Math.min(Math.max(Number(params.radius) || 15, 1), 80);
   const limit = Math.min(Math.max(Number(params.limit) || 50, 20), 300);
   const kind = String(params.kind || "all");
+  const name = String(params.name || params.q || "").trim();
   if (!Number.isFinite(lat) || !Number.isFinite(lon)) return json({ error: "Coordinate mancanti" }, 400);
   const body = buildQuery(lat, lon, radiusKm * 1000, kind, limit);
   try {
     const data = await fetchOverpass(body);
-    const results = (data.elements || []).map(toResult).filter(Boolean).slice(0, limit);
+    const results = sortByName((data.elements || []).map(toResult).filter(Boolean), name).slice(0, limit);
     return json({ results, source: "OpenStreetMap" });
   } catch (error) {
     return json({ error: "Ricerca camping momentaneamente lenta. Riprova con raggio 10 km o tra pochi secondi." }, 502);
@@ -50,6 +51,29 @@ async function fetchOverpass(query) {
     }
   }
   throw new Error(lastError);
+}
+
+function sortByName(results, name) {
+  const needle = normalize(name);
+  if (!needle) return results;
+  return results.sort((a, b) => scoreName(b, needle) - scoreName(a, needle));
+}
+
+function scoreName(result, needle) {
+  const haystack = normalize([result.name, result.place, result.kind, result.notes].join(" "));
+  if (!haystack) return 0;
+  if (haystack === needle) return 100;
+  if (haystack.includes(needle)) return 60;
+  return needle.split(" ").filter((part) => part && haystack.includes(part)).length * 10;
+}
+
+function normalize(value) {
+  return String(value || "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
 }
 
 function buildQuery(lat, lon, radius, kind, limit) {
