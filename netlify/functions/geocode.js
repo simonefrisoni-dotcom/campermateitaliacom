@@ -1,44 +1,29 @@
 exports.handler = async (event) => {
-  const q = (event.queryStringParameters && event.queryStringParameters.q) || "";
-
-  if (!q.trim()) {
-    return json(400, { error: "Inserisci una zona da cercare" });
-  }
-
+  const q = String((event.queryStringParameters && event.queryStringParameters.q) || "").trim();
+  if (!q) return json({ error: "Inserisci una localita" }, 400);
+  const api = "https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=it&q=" + encodeURIComponent(q);
   try {
-    const url = `https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=it&q=${encodeURIComponent(q)}`;
-    const response = await fetch(url, {
+    const response = await fetch(api, {
       headers: {
         accept: "application/json",
-        "user-agent": "CamperMate Netlify app"
+        "user-agent": "CamperMateItalia/1.0 (netlify)"
       }
     });
-
-    if (!response.ok) {
-      return json(502, { error: "Geocodifica non disponibile ora" });
-    }
-
+    if (!response.ok) return json({ error: "Geocodifica non disponibile" }, 502);
     const data = await response.json();
-    if (!data[0]) {
-      return json(404, { error: "Zona non trovata" });
-    }
-
-    return json(200, {
-      lat: Number(data[0].lat),
-      lon: Number(data[0].lon),
-      label: data[0].display_name
-    });
+    if (!Array.isArray(data) || !data[0]) return json({ error: "Localita non trovata" }, 404);
+    return json({ lat: Number(data[0].lat), lon: Number(data[0].lon), label: data[0].display_name });
   } catch (error) {
-    return json(500, { error: "Ricerca zona non riuscita" });
+    return json({ error: "Geocodifica non disponibile" }, 502);
   }
 };
 
-function json(statusCode, body) {
+function json(body, statusCode = 200) {
   return {
     statusCode,
     headers: {
       "content-type": "application/json; charset=utf-8",
-      "cache-control": "public, max-age=300"
+      "cache-control": "public, max-age=900"
     },
     body: JSON.stringify(body)
   };
