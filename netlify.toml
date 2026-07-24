@@ -9,6 +9,18 @@
   force = true
 
 [[redirects]]
+  from = "http://campermateitalia.com/*"
+  to = "https://www.campermateitalia.com/:splat"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "http://www.campermateitalia.com/*"
+  to = "https://www.campermateitalia.com/:splat"
+  status = 301
+  force = true
+
+[[redirects]]
   from = "/api/geocode"
   to = "/.netlify/functions/geocode"
   status = 200
@@ -19,6 +31,6 @@
   status = 200
 
 [[redirects]]
-  from = "/api/create-checkout"
-  to = "/.netlify/functions/create-checkout"
+  from = "/api/admin-users"
+  to = "/.netlify/functions/admin-users"
   status = 200
