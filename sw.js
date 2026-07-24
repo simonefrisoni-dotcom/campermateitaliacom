@@ -1,4 +1,4 @@
-const CACHE="campermate-v9";
+const CACHE="campermate-v10";
 const FILES=["/","/index.html","/manifest.webmanifest","/icon.svg"];
 self.addEventListener("install",event=>{
   event.waitUntil(caches.open(CACHE).then(cache=>cache.addAll(FILES)).catch(()=>{}));
