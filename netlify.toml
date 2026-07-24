@@ -34,3 +34,8 @@
   from = "/api/admin-users"
   to = "/.netlify/functions/admin-users"
   status = 200
+
+[[redirects]]
+  from = "/api/auth"
+  to = "/.netlify/functions/auth"
+  status = 200
