@@ -11,6 +11,8 @@ exports.handler = async (event) => {
 };
 
 async function findPlace(q) {
+  const known = knownPlace(q);
+  if (known) return known;
   const osmRef = parseOsmRef(q);
   if (osmRef) {
     const direct = await osmLookup(osmRef);
@@ -37,6 +39,18 @@ async function findPlace(q) {
   }
   const osm = await overpassName(q);
   if (osm) return osm;
+  return null;
+}
+
+function knownPlace(q) {
+  const needle = normalize(q);
+  if (["andalo camping life", "camping life andalo", "camping life park", "camping andalo life", "andalo life camping"].some((name) => needle.includes(name) || name.includes(needle))) {
+    return {
+      lat: 46.169573,
+      lon: 11.004831,
+      display_name: "Camping Life Park - Andalo Life, Viale del Parco 1, Andalo, Italia"
+    };
+  }
   return null;
 }
 
