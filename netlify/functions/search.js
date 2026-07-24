@@ -8,19 +8,49 @@ exports.handler = async (event) => {
   if (!Number.isFinite(lat) || !Number.isFinite(lon)) return json({ error: "Coordinate mancanti" }, 400);
   const body = buildQuery(lat, lon, radiusKm * 1000, kind, limit);
   try {
-    const response = await fetch("https://overpass-api.de/api/interpreter", {
-      method: "POST",
-      headers: { "content-type": "application/x-www-form-urlencoded;charset=UTF-8" },
-      body: "data=" + encodeURIComponent(body)
-    });
-    if (!response.ok) return json({ error: "Ricerca non disponibile" }, 502);
-    const data = await response.json();
+    const data = await fetchOverpass(body);
     const results = (data.elements || []).map(toResult).filter(Boolean).slice(0, limit);
     return json({ results, source: "OpenStreetMap" });
   } catch (error) {
-    return json({ error: "Ricerca non disponibile" }, 502);
+    return json({ error: "Ricerca camping momentaneamente lenta. Riprova con raggio 10 km o tra pochi secondi." }, 502);
   }
 };
+
+async function fetchOverpass(query) {
+  const endpoints = [
+    "https://overpass-api.de/api/interpreter",
+    "https://overpass.kumi.systems/api/interpreter",
+    "https://overpass.osm.ch/api/interpreter"
+  ];
+  let lastError = "Overpass non disponibile";
+  for (const endpoint of endpoints) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 8500);
+    try {
+      const response = await fetch(endpoint, {
+        method: "POST",
+        signal: controller.signal,
+        headers: {
+          "accept": "application/json",
+          "content-type": "application/x-www-form-urlencoded;charset=UTF-8",
+          "user-agent": "CamperMateItalia/1.0"
+        },
+        body: "data=" + encodeURIComponent(query)
+      });
+      clearTimeout(timer);
+      const raw = await response.text();
+      if (!response.ok) {
+        lastError = raw || ("HTTP " + response.status);
+        continue;
+      }
+      return raw ? JSON.parse(raw) : {};
+    } catch (error) {
+      clearTimeout(timer);
+      lastError = error && error.message ? error.message : "Overpass non disponibile";
+    }
+  }
+  throw new Error(lastError);
+}
 
 function buildQuery(lat, lon, radius, kind, limit) {
   const filters = [];
