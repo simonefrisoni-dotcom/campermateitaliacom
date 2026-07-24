@@ -6,11 +6,14 @@ exports.handler = async (event) => {
   const limit = Math.min(Math.max(Number(params.limit) || 50, 20), 300);
   const kind = String(params.kind || "all");
   const name = String(params.name || params.q || "").trim();
-  if (!Number.isFinite(lat) || !Number.isFinite(lon)) return json({ error: "Coordinate mancanti" }, 400);
   const knownOnly = knownResultsForName(name);
   if (knownOnly.length && (kind === "all" || kind === "camp")) {
     return json({ results: knownOnly.slice(0, limit), source: "Sito ufficiale" });
   }
+  if (String(params.nationwide || "") === "1" && name) {
+    return searchItalyByName(name, kind, limit);
+  }
+  if (!Number.isFinite(lat) || !Number.isFinite(lon)) return json({ error: "Coordinate mancanti" }, 400);
   const body = buildQuery(lat, lon, radiusKm * 1000, kind, limit);
   try {
     const data = await fetchOverpass(body);
@@ -20,6 +23,19 @@ exports.handler = async (event) => {
     return json({ error: "Ricerca camping momentaneamente lenta. Riprova con raggio 10 km o tra pochi secondi." }, 502);
   }
 };
+
+async function searchItalyByName(name, kind, limit) {
+  const body = buildItalyNameQuery(name, kind, limit);
+  try {
+    const data = await fetchOverpass(body);
+    const results = sortByName(addKnownResults((data.elements || []).map(toResult).filter(Boolean), name), name)
+      .filter((item) => scoreName(item, normalize(name)) > 0)
+      .slice(0, limit);
+    return json({ results, source: "OpenStreetMap Italia" });
+  } catch (error) {
+    return json({ error: "Ricerca nazionale momentaneamente lenta. Riprova tra pochi secondi." }, 502);
+  }
+}
 
 async function fetchOverpass(query) {
   const endpoints = [
@@ -117,6 +133,34 @@ function buildQuery(lat, lon, radius, kind, limit) {
   if (kind === "free") filters.push(`nwr(around:${radius},${lat},${lon})["fee"="no"];`);
   if (kind === "all") filters.push(`nwr(around:${radius},${lat},${lon})["amenity"="parking"]["fee"="no"];`);
   return `[out:json][timeout:25];(${filters.join("")});out center ${limit};`;
+}
+
+function buildItalyNameQuery(name, kind, limit) {
+  const token = bestSearchToken(name);
+  const filters = [];
+  const nameFilter = `["name"~"${token}",i]`;
+  const operatorFilter = `["operator"~"${token}",i]`;
+  if (kind === "all" || kind === "camp") {
+    filters.push(`nwr(area.it)["tourism"="camp_site"]${nameFilter};`);
+    filters.push(`nwr(area.it)["tourism"="camp_site"]${operatorFilter};`);
+  }
+  if (kind === "all" || kind === "camper") {
+    filters.push(`nwr(area.it)["tourism"="caravan_site"]${nameFilter};`);
+    filters.push(`nwr(area.it)["tourism"="caravan_site"]${operatorFilter};`);
+  }
+  if (kind === "all" || kind === "services") filters.push(`nwr(area.it)["amenity"="sanitary_dump_station"]${nameFilter};`);
+  if (kind === "free") {
+    filters.push(`nwr(area.it)["amenity"="parking"]["fee"="no"]${nameFilter};`);
+    filters.push(`nwr(area.it)["tourism"="caravan_site"]["fee"="no"]${nameFilter};`);
+  }
+  return `[out:json][timeout:25];area["ISO3166-1"="IT"][admin_level=2]->.it;(${filters.join("")});out center ${Math.min(Math.max(limit * 3, 60), 500)};`;
+}
+
+function bestSearchToken(name) {
+  const stop = new Set(["camping", "campeggio", "area", "sosta", "camper", "agricampeggio", "italia", "life", "park"]);
+  const parts = normalize(name).split(" ").filter((part) => part.length > 2 && !stop.has(part));
+  const best = (parts.sort((a, b) => b.length - a.length)[0] || normalize(name).split(" ")[0] || "").slice(0, 40);
+  return best.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 function toResult(el) {
