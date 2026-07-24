@@ -7,6 +7,10 @@ exports.handler = async (event) => {
   const kind = String(params.kind || "all");
   const name = String(params.name || params.q || "").trim();
   if (!Number.isFinite(lat) || !Number.isFinite(lon)) return json({ error: "Coordinate mancanti" }, 400);
+  const knownOnly = knownResultsForName(name);
+  if (knownOnly.length && (kind === "all" || kind === "camp")) {
+    return json({ results: knownOnly.slice(0, limit), source: "Sito ufficiale" });
+  }
   const body = buildQuery(lat, lon, radiusKm * 1000, kind, limit);
   try {
     const data = await fetchOverpass(body);
@@ -54,8 +58,15 @@ async function fetchOverpass(query) {
 }
 
 function addKnownResults(results, name) {
+  const known = knownResultsForName(name);
+  if (!known.length) return results;
+  const ids = new Set(results.map((item) => item.id));
+  return known.filter((item) => !ids.has(item.id)).concat(results);
+}
+
+function knownResultsForName(name) {
   const needle = normalize(name);
-  if (!needle) return results;
+  if (!needle) return [];
   const known = [];
   if (["andalo camping life", "camping life andalo", "camping life park", "camping andalo life", "andalo life camping"].some((label) => needle.includes(label) || label.includes(needle))) {
     known.push({
@@ -72,9 +83,7 @@ function addKnownResults(results, name) {
       source: "Sito ufficiale"
     });
   }
-  if (!known.length) return results;
-  const ids = new Set(results.map((item) => item.id));
-  return known.filter((item) => !ids.has(item.id)).concat(results);
+  return known;
 }
 
 function sortByName(results, name) {
