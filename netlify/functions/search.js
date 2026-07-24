@@ -29,16 +29,7 @@ async function searchItalyByName(name, kind, limit) {
   if (nominatimResults.length) {
     return json({ results: sortByName(addKnownResults(nominatimResults, name), name).slice(0, limit), source: "OpenStreetMap Italia" });
   }
-  const body = buildItalyNameQuery(name, kind, limit);
-  try {
-    const data = await fetchOverpass(body);
-    const results = sortByName(addKnownResults((data.elements || []).map(toResult).filter(Boolean), name), name)
-      .filter((item) => scoreName(item, normalize(name)) > 0)
-      .slice(0, limit);
-    return json({ results, source: "OpenStreetMap Italia" });
-  } catch (error) {
-    return json({ error: "Ricerca nazionale momentaneamente lenta. Riprova tra pochi secondi." }, 502);
-  }
+  return json({ results: [], source: "OpenStreetMap Italia" });
 }
 
 async function searchNominatimItaly(name, kind, limit) {
